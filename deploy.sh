@@ -25,8 +25,8 @@ fi
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" >/dev/null && pwd)"
 AWS_CLI_VERSION=$(aws --version 2>&1 | cut -d/ -f2 | cut -d. -f1)
 
-PROJECT_NAME="$(basename ${DIR})"
-STACK_NAME="appmesh-${PROJECT_NAME}"
+PROJECT_NAME="appmesh"
+STACK_NAME=${PROJECT_NAME}
 ECR_URL="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
 ECR_IMAGE_PREFIX=${ECR_URL}/${PROJECT_NAME}
 CW_AGENT_IMAGE="${ECR_IMAGE_PREFIX}/cwagent:$(git log -1 --format=%h src/cwagent)"
@@ -52,8 +52,8 @@ deploy_images() {
     ecr_login
 
     # docker build -t ${CW_AGENT_IMAGE} ${DIR}/src/cwagent && docker push ${CW_AGENT_IMAGE}
-    docker build -t ${COLOR_APP_IMAGE}:latest --build-arg GO_PROXY=${GO_PROXY} ${DIR}/src/colorapp && docker push ${COLOR_APP_IMAGE}:latest
-    docker build -t ${FRONT_APP_IMAGE} --build-arg GO_PROXY=${GO_PROXY} ${DIR}/src/feapp && docker push ${FRONT_APP_IMAGE}
+    docker build --platform=linux/amd64 -t ${COLOR_APP_IMAGE} --build-arg GO_PROXY=${GO_PROXY} ${DIR}/src/colorapp && docker push ${COLOR_APP_IMAGE}
+    docker build --platform=linux/amd64 -t ${FRONT_APP_IMAGE} --build-arg GO_PROXY=${GO_PROXY} ${DIR}/src/feapp && docker push ${FRONT_APP_IMAGE}
 }
 
 # deploy deploys infra, colorapp and feapp.

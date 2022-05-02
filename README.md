@@ -20,7 +20,7 @@ This tutorial provides a walkthrough of the basics of App Mesh service. This int
     ```
 4. **ENVOY_IMAGE** environment variable is not set to App Mesh Envoy, see https://docs.aws.amazon.com/app-mesh/latest/userguide/envoy.html
     ```
-    export ENVOY_IMAGE=...
+    export ENVOY_IMAGE=840364872350.dkr.ecr.us-east-1.amazonaws.com/aws-appmesh-envoy:v1.21.1.2-prod
     ```
 
 ## Prelude
