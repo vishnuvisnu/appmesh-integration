@@ -20,6 +20,11 @@ Parameters:
     Type: String
     Description: ECS cluster name for all the applications
     Default: 'ozark'
+  
+  VpcId:
+    Type: String
+    Description: Vpc Id for all the infrastructure
+    Default: "vpc-6287b604"
 
   PublicSubnet1:
     Type: String
@@ -90,7 +95,7 @@ Resources:
     Type: AWS::ServiceDiscovery::PrivateDnsNamespace
     Properties:
       Name: !Sub '${ProjectName}.pvtdns'
-      VpcId: !Ref VpcId
+      Vpc: !Ref VpcId
 
   # END infra
 
