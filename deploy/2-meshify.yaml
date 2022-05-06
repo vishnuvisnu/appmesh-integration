@@ -15,6 +15,11 @@ Parameters:
     Type: String
     Description: Envoy container image
 
+  VpcId:
+    Type: String
+    Description: Vpc Id for all the infrastructure
+    Default: "vpc-6287b604"
+
   ContainerPort:
     Type: Number
     Description: Port number to use for applications
@@ -95,7 +100,7 @@ Resources:
     Type: AWS::ServiceDiscovery::PrivateDnsNamespace
     Properties:
       Name: !Sub '${ProjectName}.pvtdns'
-      VpcId: !Ref VpcId
+      Vpc: !Ref VpcId
 
   Mesh:
     Type: AWS::AppMesh::Mesh
@@ -268,8 +273,8 @@ Resources:
       DeploymentConfiguration:
         MaximumPercent: 200
         MinimumHealthyPercent: 100
-      DesiredCount: 3
-      LaunchType: 'FARGATE'
+      DesiredCount: 1
+      LaunchType: 'EC2'
       ServiceRegistries:
         - RegistryArn: !GetAtt 'ColorServiceRegistry.Arn'
       NetworkConfiguration:

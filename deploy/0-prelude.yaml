@@ -11,6 +11,11 @@ Parameters:
     Type: String
     Description: Front app container image
 
+  ColorTargetGroupPort:
+    Type: Number
+    Description: Port number for color target group port
+    Default: 8080
+
   ContainerPort:
     Type: Number
     Description: Port number to use for applications
@@ -136,9 +141,11 @@ Resources:
       DefaultActions:
         - TargetGroupArn: !Ref ColorTargetGroup
           Type: 'forward'
+      Certificates:
+        - CertificateArn: 'arn:aws:acm:us-east-1:511466311067:certificate/14983173-f606-43da-a46f-283d678af9d9'
       LoadBalancerArn: !Ref ColorLoadBalancer
-      Port: !Ref ContainerPort
-      Protocol: HTTP
+      Port: 443
+      Protocol: HTTPS
 
   ColorLoadBalancerRule:
     Type: AWS::ElasticLoadBalancingV2::ListenerRule
@@ -280,12 +287,7 @@ Resources:
               Condition: 'START'
           Environment:
             - Name: 'COLOR_HOST'
-              Value:
-                Fn::Join:
-                  - ''
-                  - - !GetAtt ColorLoadBalancer.DNSName
-                    - ':'
-                    - !Sub '${ContainerPort}'
+              Value: 'color-appmesh.dev.acorns.io:443'
             - Name: PORT
               Value: !Sub '${ContainerPort}'
             - Name: XRAY_APP_NAME
