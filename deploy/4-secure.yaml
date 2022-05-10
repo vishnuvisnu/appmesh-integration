@@ -23,7 +23,7 @@ Parameters:
   ContainerPort:
     Type: Number
     Description: Port number to use for applications
-    Default: 8080
+    Default: 80
   
   ECSServicesDomain:
     Type: String
@@ -102,7 +102,7 @@ Resources:
         - arn:aws:iam::aws:policy/CloudWatchFullAccess
         - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
         - arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess
-        - arn:aws:iam::aws:policy/AWSCertificateManagerPrivateCAReadOnly
+        - arn:aws:iam::aws:policy/AWSCertificateManagerFullAccess
 
   TaskExecutionIamRole:
     Type: AWS::IAM::Role
@@ -131,10 +131,14 @@ Resources:
     Properties:
       MeshName: !Ref ProjectName
 
+  # END infra
+
+  # START colorapp
+
   AppMeshHostedZone:
     Type: AWS::Route53::HostedZone
     Properties:
-      Name: !Sub '${ProjectName}.mesh.local'
+      Name: !Sub 'mesh.local'
       HostedZoneConfig:
         Comment: Private hosted zone for resolving virtual-services
       VPCs:
@@ -155,14 +159,10 @@ Resources:
           - '.'
           -
             - '*'
-            - !Sub '${ProjectName}.mesh.local'
+            - !Sub 'mesh.local'
       Type: A
 
-  # END infra
-
-  # START colorapp
-
-  ColorServiceRegistry:
+  ColorVirtualNodeRegistry:
     Type: AWS::ServiceDiscovery::Service
     Properties:
       Name: 'color'
@@ -291,7 +291,7 @@ Resources:
   ColorECSService:
     Type: AWS::ECS::Service
     DependsOn:
-      - ColorServiceRegistry
+      - ColorVirtualNodeRegistry
     Properties:
       Cluster: !Ref ECSClusterName
       DeploymentConfiguration:
@@ -300,7 +300,7 @@ Resources:
       DesiredCount: 3
       LaunchType: 'EC2'
       ServiceRegistries:
-        - RegistryArn: !GetAtt 'ColorServiceRegistry.Arn'
+        - RegistryArn: !GetAtt 'ColorVirtualNodeRegistry.Arn'
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: DISABLED
@@ -322,22 +322,21 @@ Resources:
               Port: !Ref ContainerPort
               Protocol: http
             TLS:
-              # Mode determines whether or not TLS is negotiated on this Virtual Node.
-              # STRICT - TLS is required.
-              # PERMISSIVE - TLS is optional (plain-text allowed).
-              # DISABLED - TLS is disabled (plain-text only).
               Mode: STRICT
-              # Use a certificate from ACM.
               Certificate:
                 ACM:
                   CertificateArn: !Ref CertificateArn
         ServiceDiscovery:
           AWSCloudMap:
             NamespaceName: 'appmesh.dev'
-            ServiceName: !GetAtt ColorServiceRegistry.Name
+            ServiceName: !GetAtt ColorVirtualNodeRegistry.Name
             Attributes:
               - Key: 'ECS_TASK_DEFINITION_FAMILY'
                 Value: !Sub '${ProjectName}-color'
+        Logging:
+          AccessLog:
+            File:
+              Path: "/dev/stdout"
 
   # colorapp v2 (blue)
   ColorV2TaskDef:
@@ -457,7 +456,7 @@ Resources:
   ColorV2ECSService:
     Type: AWS::ECS::Service
     DependsOn:
-      - ColorServiceRegistry
+      - ColorVirtualNodeRegistry
     Properties:
       Cluster: !Ref ECSClusterName
       DeploymentConfiguration:
@@ -466,7 +465,7 @@ Resources:
       DesiredCount: 3
       LaunchType: 'EC2'
       ServiceRegistries:
-        - RegistryArn: !GetAtt 'ColorServiceRegistry.Arn'
+        - RegistryArn: !GetAtt 'ColorVirtualNodeRegistry.Arn'
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: DISABLED
@@ -488,22 +487,21 @@ Resources:
               Port: !Ref ContainerPort
               Protocol: http
             TLS:
-              # Mode determines whether or not TLS is negotiated on this Virtual Node.
-              # STRICT - TLS is required.
-              # PERMISSIVE - TLS is optional (plain-text allowed).
-              # DISABLED - TLS is disabled (plain-text only).
               Mode: STRICT
-              # Use a certificate from ACM.
               Certificate:
                 ACM:
                   CertificateArn: !Ref CertificateArn
         ServiceDiscovery:
           AWSCloudMap:
             NamespaceName: 'appmesh.dev'
-            ServiceName: !GetAtt ColorServiceRegistry.Name
+            ServiceName: !GetAtt ColorVirtualNodeRegistry.Name
             Attributes:
               - Key: 'ECS_TASK_DEFINITION_FAMILY'
                 Value: !Sub '${ProjectName}-color-v2'
+        Logging:
+          AccessLog:
+            File:
+              Path: "/dev/stdout"
 
   ColorVirtualService:
     Type: AWS::AppMesh::VirtualService
@@ -512,8 +510,8 @@ Resources:
       VirtualServiceName:
         Fn::Join:
           - '.'
-          - - !GetAtt ColorServiceRegistry.Name
-            - !Sub '${ProjectName}.mesh.local'
+          - - !GetAtt ColorVirtualNodeRegistry.Name
+            - 'mesh.local'
       Spec:
         Provider:
           VirtualRouter:
@@ -561,7 +559,7 @@ Resources:
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
       TargetType: ip
-      Name: !Sub '${ProjectName}-front'
+      Name: !Sub '${ProjectName}-front-tg'
       Port: !Ref ContainerPort
       Protocol: HTTP
       UnhealthyThresholdCount: 2
@@ -581,20 +579,23 @@ Resources:
               Port: !Sub '${ContainerPort}'
               Protocol: http
         ServiceDiscovery:
-          AWSCloudMap:
-            NamespaceName: 'appmesh.dev'
-            ServiceName: !GetAtt ColorServiceRegistry.Name
+          DNS:
+            Hostname: !GetAtt PublicLoadBalancer.DNSName
         Backends:
           - VirtualService:
               VirtualServiceName: !GetAtt ColorVirtualService.VirtualServiceName
-        BackendDefaults:
-          ClientPolicy:
-            TLS:
-              Validation:
-                Trust:
-                  ACM:
-                    CertificateAuthorityArns:
-                      - !Ref CertificateAuthorityArn
+              ClientPolicy:
+                TLS:
+                  Validation:
+                    Trust:
+                      ACM:
+                        CertificateAuthorityArns:
+                          - !Ref CertificateAuthorityArn
+        Logging:
+          AccessLog:
+            File:
+              Path: "/dev/stdout"
+          
 
   FrontTaskDef:
     Type: AWS::ECS::TaskDefinition
