@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const defaultPort = "8080"
+const defaultPort = "80"
 const defaultStage = "default"
 const maxColors = 1000
 
@@ -130,7 +130,7 @@ func getColorFromColorTeller(request *http.Request) (string, error) {
 	}
 
 	client := xray.Client(&http.Client{})
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://%s", colorTellerEndpoint), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", colorTellerEndpoint), nil)
 	if err != nil {
 		return "-n/a-", err
 	}
@@ -147,6 +147,7 @@ func getColorFromColorTeller(request *http.Request) (string, error) {
 	}
 
 	color := strings.TrimSpace(string(body))
+
 	if len(color) < 1 {
 		return "-n/a-", errors.New("Empty response from colorTeller")
 	}
@@ -169,7 +170,7 @@ func main() {
 		log.Fatalln(err)
 	}
 
-	log.Println("Using color-teller at " + colorTellerEndpoint)
+	log.Println("Using color teller at " + colorTellerEndpoint)
 
 	xraySegmentNamer := xray.NewFixedSegmentNamer(getXRAYAppName())
 
