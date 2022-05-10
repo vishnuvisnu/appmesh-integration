@@ -130,7 +130,7 @@ func getColorFromColorTeller(request *http.Request) (string, error) {
 	}
 
 	client := xray.Client(&http.Client{})
-	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", colorTellerEndpoint), nil)
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("https://%s", colorTellerEndpoint), nil)
 	if err != nil {
 		return "-n/a-", err
 	}

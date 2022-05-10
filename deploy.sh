@@ -70,7 +70,9 @@ deploy() {
         "ProjectName=${PROJECT_NAME}" \
         "EnvoyImage=${ENVOY_IMAGE}" \
         "ColorAppImage=${COLOR_APP_IMAGE}" \
-        "FrontAppImage=${FRONT_APP_IMAGE}"
+        "FrontAppImage=${FRONT_APP_IMAGE}" \
+        "CertificateAuthorityArn=${ROOT_CA_ARN}" \
+        "CertificateArn=${CERTIFICATE_ARN}"
 }
 
 delete_cfn_stack() {

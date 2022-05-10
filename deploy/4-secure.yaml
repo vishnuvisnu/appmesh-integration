@@ -25,6 +25,11 @@ Parameters:
     Description: Port number to use for applications
     Default: 8080
   
+  ECSServicesDomain:
+    Type: String
+    Description: DNS namespace used by services
+    Default: "appmesh.dev"
+  
   ECSClusterName:
     Type: String
     Description: ECS cluster name for all the applications
@@ -64,6 +69,14 @@ Parameters:
     Type: String
     Description: Security group associated with the services in ozark cluster.
     Default: "sg-0d249c9fb00ab7cb5"
+  
+  CertificateAuthorityArn:
+    Description: the Amazon Resource Name (ARN) of the certificate authority to use for validating TLS certificates.
+    Type: String
+
+  CertificateArn:
+    Description: The Amazon Resource Name (ARN) of the certificate to use for terminating TLS.
+    Type: String
 
 Resources:
 
@@ -89,6 +102,7 @@ Resources:
         - arn:aws:iam::aws:policy/CloudWatchFullAccess
         - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
         - arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess
+        - arn:aws:iam::aws:policy/AWSCertificateManagerPrivateCAReadOnly
 
   TaskExecutionIamRole:
     Type: AWS::IAM::Role
@@ -109,7 +123,7 @@ Resources:
   PrivateDnsNamespace:
     Type: AWS::ServiceDiscovery::PrivateDnsNamespace
     Properties:
-      Name: !Sub '${ProjectName}.pvtdns'
+      Name: 'appmesh.dev'
       Vpc: !Ref VpcId
 
   Mesh:
@@ -164,7 +178,7 @@ Resources:
     Type: AWS::ECS::TaskDefinition
     Properties:
       RequiresCompatibilities:
-        - 'FARGATE'
+        - 'EC2'
       Family: !Sub '${ProjectName}-color'
       NetworkMode: 'awsvpc'
       Cpu: 256
@@ -284,7 +298,7 @@ Resources:
         MaximumPercent: 200
         MinimumHealthyPercent: 100
       DesiredCount: 3
-      LaunchType: 'FARGATE'
+      LaunchType: 'EC2'
       ServiceRegistries:
         - RegistryArn: !GetAtt 'ColorServiceRegistry.Arn'
       NetworkConfiguration:
@@ -307,9 +321,19 @@ Resources:
           - PortMapping:
               Port: !Ref ContainerPort
               Protocol: http
+            TLS:
+              # Mode determines whether or not TLS is negotiated on this Virtual Node.
+              # STRICT - TLS is required.
+              # PERMISSIVE - TLS is optional (plain-text allowed).
+              # DISABLED - TLS is disabled (plain-text only).
+              Mode: STRICT
+              # Use a certificate from ACM.
+              Certificate:
+                ACM:
+                  CertificateArn: !Ref CertificateArn
         ServiceDiscovery:
           AWSCloudMap:
-            NamespaceName: !Sub '${ProjectName}.pvtdns'
+            NamespaceName: 'appmesh.dev'
             ServiceName: !GetAtt ColorServiceRegistry.Name
             Attributes:
               - Key: 'ECS_TASK_DEFINITION_FAMILY'
@@ -320,7 +344,7 @@ Resources:
     Type: AWS::ECS::TaskDefinition
     Properties:
       RequiresCompatibilities:
-        - 'FARGATE'
+        - 'EC2'
       Family: !Sub '${ProjectName}-color-v2'
       NetworkMode: 'awsvpc'
       Cpu: 256
@@ -440,7 +464,7 @@ Resources:
         MaximumPercent: 200
         MinimumHealthyPercent: 100
       DesiredCount: 3
-      LaunchType: 'FARGATE'
+      LaunchType: 'EC2'
       ServiceRegistries:
         - RegistryArn: !GetAtt 'ColorServiceRegistry.Arn'
       NetworkConfiguration:
@@ -463,9 +487,19 @@ Resources:
           - PortMapping:
               Port: !Ref ContainerPort
               Protocol: http
+            TLS:
+              # Mode determines whether or not TLS is negotiated on this Virtual Node.
+              # STRICT - TLS is required.
+              # PERMISSIVE - TLS is optional (plain-text allowed).
+              # DISABLED - TLS is disabled (plain-text only).
+              Mode: STRICT
+              # Use a certificate from ACM.
+              Certificate:
+                ACM:
+                  CertificateArn: !Ref CertificateArn
         ServiceDiscovery:
           AWSCloudMap:
-            NamespaceName: !Sub '${ProjectName}.pvtdns'
+            NamespaceName: 'appmesh.dev'
             ServiceName: !GetAtt ColorServiceRegistry.Name
             Attributes:
               - Key: 'ECS_TASK_DEFINITION_FAMILY'
@@ -547,11 +581,20 @@ Resources:
               Port: !Sub '${ContainerPort}'
               Protocol: http
         ServiceDiscovery:
-          DNS:
-            Hostname: !GetAtt PublicLoadBalancer.DNSName
+          AWSCloudMap:
+            NamespaceName: 'appmesh.dev'
+            ServiceName: !GetAtt ColorServiceRegistry.Name
         Backends:
           - VirtualService:
               VirtualServiceName: !GetAtt ColorVirtualService.VirtualServiceName
+        BackendDefaults:
+          ClientPolicy:
+            TLS:
+              Validation:
+                Trust:
+                  ACM:
+                    CertificateAuthorityArns:
+                      - !Ref CertificateAuthorityArn
 
   FrontTaskDef:
     Type: AWS::ECS::TaskDefinition
@@ -559,7 +602,7 @@ Resources:
       - FrontVirtualNode
     Properties:
       RequiresCompatibilities:
-        - 'FARGATE'
+        - 'EC2'
       Family: !Sub '${ProjectName}-front'
       NetworkMode: 'awsvpc'
       Cpu: 256
@@ -684,7 +727,7 @@ Resources:
         MaximumPercent: 200
         MinimumHealthyPercent: 100
       DesiredCount: 3
-      LaunchType: 'FARGATE'
+      LaunchType: 'EC2'
       TaskDefinition: !Ref FrontTaskDef
       LoadBalancers:
         - ContainerName: app
