@@ -9,7 +9,7 @@ import (
 	"github.com/aws/aws-xray-sdk-go/xray"
 )
 
-const defaultPort = "80"
+const defaultPort = "8080"
 const defaultColor = "black"
 const defaultStage = "default"
 
