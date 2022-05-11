@@ -15,7 +15,7 @@ import (
 	"github.com/pkg/errors"
 )
 
-const defaultPort = "80"
+const defaultPort = "8080"
 const defaultStage = "default"
 const maxColors = 1000
 
