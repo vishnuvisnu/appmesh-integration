@@ -40,15 +40,6 @@ func getXRAYAppName() string {
 	return "color"
 }
 
-func getStage() string {
-	stage := os.Getenv("STAGE")
-	if stage != "" {
-		return stage
-	}
-
-	return defaultStage
-}
-
 type colorHandler struct{}
 
 func (h *colorHandler) ServeHTTP(writer http.ResponseWriter, request *http.Request) {

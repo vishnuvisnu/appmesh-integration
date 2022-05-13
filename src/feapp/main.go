@@ -16,7 +16,6 @@ import (
 )
 
 const defaultPort = "8080"
-const defaultStage = "default"
 const maxColors = 1000
 
 var colors [maxColors]string
@@ -30,15 +29,6 @@ func getServerPort() string {
 	}
 
 	return defaultPort
-}
-
-func getStage() string {
-	stage := os.Getenv("STAGE")
-	if stage != "" {
-		return stage
-	}
-
-	return defaultStage
 }
 
 func getXRAYAppName() string {
