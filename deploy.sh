@@ -29,7 +29,6 @@ PROJECT_NAME="appmesh"
 STACK_NAME=${PROJECT_NAME}
 ECR_URL="${AWS_ACCOUNT_ID}.dkr.ecr.${AWS_DEFAULT_REGION}.amazonaws.com"
 ECR_IMAGE_PREFIX=${ECR_URL}/${PROJECT_NAME}
-CW_AGENT_IMAGE="${ECR_IMAGE_PREFIX}/cwagent:$(git log -1 --format=%h src/cwagent)"
 COLOR_APP_IMAGE="${ECR_IMAGE_PREFIX}/colorapp:$(git log -1 --format=%h src/colorapp)"
 FRONT_APP_IMAGE="${ECR_IMAGE_PREFIX}/feapp:$(git log -1 --format=%h src/feapp)"
 GO_PROXY=${GO_PROXY:-"https://proxy.golang.org"}
@@ -51,7 +50,6 @@ deploy_images() {
 
     ecr_login
 
-    # docker build -t ${CW_AGENT_IMAGE} ${DIR}/src/cwagent && docker push ${CW_AGENT_IMAGE}
     docker build --platform=linux/amd64 -t ${COLOR_APP_IMAGE} --build-arg GO_PROXY=${GO_PROXY} ${DIR}/src/colorapp && docker push ${COLOR_APP_IMAGE}
     docker build --platform=linux/amd64 -t ${FRONT_APP_IMAGE} --build-arg GO_PROXY=${GO_PROXY} ${DIR}/src/feapp && docker push ${FRONT_APP_IMAGE}
 }
@@ -72,7 +70,8 @@ deploy() {
         "ColorAppImage=${COLOR_APP_IMAGE}" \
         "FrontAppImage=${FRONT_APP_IMAGE}" \
         "CertificateAuthorityArn=${ROOT_CA_ARN}" \
-        "CertificateArn=${CERTIFICATE_ARN}"
+        "CertificateArn=${CERTIFICATE_ARN}" \
+        "ContainerPort=80"
 }
 
 delete_cfn_stack() {

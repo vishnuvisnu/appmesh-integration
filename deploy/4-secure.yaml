@@ -20,9 +20,24 @@ Parameters:
     Description: Vpc Id for all the infrastructure
     Default: "vpc-6287b604"
 
-  ContainerPort:
+  ColorContainerPort:
     Type: Number
-    Description: Port number to use for applications
+    Description: Port number to use for color app
+    Default: 8080
+
+  ColorV2ContainerPort:
+    Type: Number
+    Description: Port number to use for color v2 app
+    Default: 8080
+
+  FrontContainerPort:
+    Type: Number
+    Description: Port number to use for front end app
+    Default: 8080
+
+  RouterListenerPort:
+    Type: Number
+    Description: Port number to use for color v2 app
     Default: 80
   
   ECSServicesDomain:
@@ -103,6 +118,7 @@ Resources:
         - arn:aws:iam::aws:policy/AWSXRayDaemonWriteAccess
         - arn:aws:iam::aws:policy/AWSAppMeshEnvoyAccess
         - arn:aws:iam::aws:policy/AWSCertificateManagerFullAccess
+        - arn:aws:iam::aws:policy/AWSCertificateManagerPrivateCAReadOnly
 
   TaskExecutionIamRole:
     Type: AWS::IAM::Role
@@ -174,6 +190,18 @@ Resources:
       HealthCheckCustomConfig:
         FailureThreshold: 1
 
+  ColorV2VirtualNodeRegistry:
+    Type: AWS::ServiceDiscovery::Service
+    Properties:
+      Name: 'color-v2'
+      DnsConfig:
+        NamespaceId: !GetAtt PrivateDnsNamespace.Id
+        DnsRecords:
+          - Type: A
+            TTL: 300
+      HealthCheckCustomConfig:
+        FailureThreshold: 1
+
   ColorTaskDef:
     Type: AWS::ECS::TaskDefinition
     Properties:
@@ -196,7 +224,7 @@ Resources:
           - Name: 'ProxyEgressPort'
             Value: '15001'
           - Name: 'AppPorts'
-            Value: !Sub '${ContainerPort}'
+            Value: !Sub '${ColorContainerPort}'
           - Name: 'EgressIgnoredIPs'
             Value: '169.254.170.2,169.254.169.254'
       ContainerDefinitions:
@@ -215,14 +243,14 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: 'color'
           PortMappings:
-            - ContainerPort: !Ref ContainerPort
-              HostPort: !Ref ContainerPort
+            - ContainerPort: !Ref ColorContainerPort
+              HostPort: !Ref ColorContainerPort
               Protocol: 'tcp'
           Environment:
             - Name: COLOR
               Value: 'green'
             - Name: PORT
-              Value: !Sub '${ContainerPort}'
+              Value: !Sub '${ColorContainerPort}'
             - Name: XRAY_APP_NAME
               Value: 'color'
         - Name: 'xray'
@@ -319,7 +347,7 @@ Resources:
       Spec:
         Listeners:
           - PortMapping:
-              Port: !Ref ContainerPort
+              Port: !Ref ColorContainerPort
               Protocol: http
             TLS:
               Mode: STRICT
@@ -361,7 +389,7 @@ Resources:
           - Name: 'ProxyEgressPort'
             Value: '15001'
           - Name: 'AppPorts'
-            Value: !Sub '${ContainerPort}'
+            Value: !Sub '${ColorV2ContainerPort}'
           - Name: 'EgressIgnoredIPs'
             Value: '169.254.170.2,169.254.169.254'
       ContainerDefinitions:
@@ -380,14 +408,14 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: 'color'
           PortMappings:
-            - ContainerPort: !Ref ContainerPort
-              HostPort: !Ref ContainerPort
+            - ContainerPort: !Ref ColorV2ContainerPort
+              HostPort: !Ref ColorV2ContainerPort
               Protocol: 'tcp'
           Environment:
             - Name: COLOR
               Value: 'blue'
             - Name: PORT
-              Value: !Sub '${ContainerPort}'
+              Value: !Sub '${ColorV2ContainerPort}'
             - Name: XRAY_APP_NAME
               Value: 'color-v2'
         - Name: 'xray'
@@ -465,7 +493,7 @@ Resources:
       DesiredCount: 3
       LaunchType: 'EC2'
       ServiceRegistries:
-        - RegistryArn: !GetAtt 'ColorVirtualNodeRegistry.Arn'
+        - RegistryArn: !GetAtt 'ColorV2VirtualNodeRegistry.Arn'
       NetworkConfiguration:
         AwsvpcConfiguration:
           AssignPublicIp: DISABLED
@@ -484,7 +512,7 @@ Resources:
       Spec:
         Listeners:
           - PortMapping:
-              Port: !Ref ContainerPort
+              Port: !Ref ColorV2ContainerPort
               Protocol: http
             TLS:
               Mode: STRICT
@@ -494,7 +522,7 @@ Resources:
         ServiceDiscovery:
           AWSCloudMap:
             NamespaceName: 'appmesh.dev'
-            ServiceName: !GetAtt ColorVirtualNodeRegistry.Name
+            ServiceName: !GetAtt ColorV2VirtualNodeRegistry.Name
             Attributes:
               - Key: 'ECS_TASK_DEFINITION_FAMILY'
                 Value: !Sub '${ProjectName}-color-v2'
@@ -525,7 +553,7 @@ Resources:
       Spec:
         Listeners:
           - PortMapping:
-              Port: !Ref ContainerPort
+              Port: !Ref RouterListenerPort
               Protocol: http
 
   ColorRoute:
@@ -554,13 +582,13 @@ Resources:
     Properties:
       HealthCheckIntervalSeconds: 60
       HealthCheckPath: '/ping'
-      HealthCheckPort: !Ref ContainerPort
+      HealthCheckPort: !Ref FrontContainerPort
       HealthCheckProtocol: HTTP
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 2
       TargetType: ip
       Name: !Sub '${ProjectName}-front-tg'
-      Port: !Ref ContainerPort
+      Port: !Ref FrontContainerPort
       Protocol: HTTP
       UnhealthyThresholdCount: 2
       TargetGroupAttributes:
@@ -576,7 +604,7 @@ Resources:
       Spec:
         Listeners:
           - PortMapping:
-              Port: !Sub '${ContainerPort}'
+              Port: !Sub '${FrontContainerPort}'
               Protocol: http
         ServiceDiscovery:
           DNS:
@@ -621,7 +649,7 @@ Resources:
           - Name: 'ProxyEgressPort'
             Value: '15001'
           - Name: 'AppPorts'
-            Value: !Sub '${ContainerPort}'
+            Value: !Sub '${FrontContainerPort}'
           - Name: 'EgressIgnoredIPs'
             Value: '169.254.170.2,169.254.169.254'
       ContainerDefinitions:
@@ -635,7 +663,7 @@ Resources:
               awslogs-region: !Ref AWS::Region
               awslogs-stream-prefix: 'front'
           PortMappings:
-            - ContainerPort: !Ref ContainerPort
+            - ContainerPort: !Ref FrontContainerPort
               Protocol: 'tcp'
           DependsOn:
             - ContainerName: 'envoy'
@@ -644,14 +672,9 @@ Resources:
               Condition: 'START'
           Environment:
             - Name: 'COLOR_HOST'
-              Value:
-                Fn::Join:
-                - ''
-                - - !GetAtt ColorVirtualService.VirtualServiceName
-                  - ':'
-                  - !Sub '${ContainerPort}'
+              Value: !GetAtt ColorVirtualService.VirtualServiceName
             - Name: PORT
-              Value: !Sub '${ContainerPort}'
+              Value: !Sub '${FrontContainerPort}'
             - Name: XRAY_APP_NAME
               Value: 'front'
         - Name: 'xray'
@@ -732,7 +755,7 @@ Resources:
       TaskDefinition: !Ref FrontTaskDef
       LoadBalancers:
         - ContainerName: app
-          ContainerPort: !Ref ContainerPort
+          ContainerPort: !Ref FrontContainerPort
           TargetGroupArn: !Ref FrontTargetGroup
       NetworkConfiguration:
         AwsvpcConfiguration:
