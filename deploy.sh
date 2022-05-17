@@ -56,13 +56,11 @@ deploy_images() {
 
 # deploy deploys infra, colorapp and feapp.
 deploy() {
-    stage=$1
-
     echo "Deploying stack ${STACK_NAME}, this may take a few minutes..."
     aws cloudformation deploy \
         --no-fail-on-empty-changeset \
         --stack-name ${STACK_NAME} \
-        --template-file "$DIR/deploy/$stage.yaml" \
+        --template-file "$DIR/deploy/mesh.yaml" \
         --capabilities CAPABILITY_IAM \
         --parameter-overrides \
         "ProjectName=${PROJECT_NAME}" \
@@ -70,8 +68,7 @@ deploy() {
         "ColorAppImage=${COLOR_APP_IMAGE}" \
         "FrontAppImage=${FRONT_APP_IMAGE}" \
         "CertificateAuthorityArn=${ROOT_CA_ARN}" \
-        "CertificateArn=${CERTIFICATE_ARN}" \
-        "ContainerPort=80"
+        "CertificateArn=${CERTIFICATE_ARN}"
 }
 
 delete_cfn_stack() {
@@ -103,12 +100,8 @@ deploy_stacks() {
         deploy_images
     fi
 
-    echo "deploy app using stage ${stage}"
-    deploy "${stage}"
+    deploy
 
-    if [ "${stage}" == "2-meshify" ]; then
-      confirm_service_linked_role
-    fi
     print_endpoint
 }
 
@@ -117,12 +110,4 @@ delete_stacks() {
     delete_cfn_stack ${STACK_NAME}
 }
 
-action=${1:-"deploy"}
-stage=${2:-"0-prelude"}
-if [ "$action" == "delete" ]; then
-    delete_stacks
-    exit 0
-fi
-
 deploy_stacks
-# deploy_images
